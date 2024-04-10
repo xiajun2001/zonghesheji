@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Prediction</title>
+    <!-- 引入 ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.0/dist/echarts.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            background-color: #f5f5f5;
+        }
+
+        .form-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-container h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 24px;
+            text-align: center;
+        }
+
+        .form-container p {
+            margin-top: 10px;
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+
+        .form-container input[type="file"],
+        .form-container input[type="number"],
+        .form-container select {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            margin-bottom: 20px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        .form-container input[type="submit"] {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .form-container input[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+
+        .chart-container {
+            width: calc(50% - 20px);
+            height: 400px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h2>图像预测</h2>
+        <form id="prediction-form" action="/classapi" method="post" enctype="multipart/form-data">
+            <p>请传入单张图片:</p>
+            <input type="file" name="file">
+            <p>最大预测数量:</p>
+            <input type="number" value="5" name="top">
+            <p>预测模型:</p>
+            <select name="net">
+                <option value="res">Resnet50</option>
+                <option value="inc" selected="selected">InceptionV3</option>
+            </select>
+            <p><input type="submit" value="Submit"></p>
+        </form>
+    </div>
+    <div style="display: flex; justify-content: center; margin-top: 20px;">
+        <div class="chart-container" id="bar-chart-container"></div>
+        <div class="chart-container" id="pie-chart-container"></div>
+    </div>
+
+    <script>
+        document.getElementById('prediction-form').addEventListener('submit', function(event) {
+            event.preventDefault(); // 阻止表单提交
+
+            // 获取表单数据
+            const formData = new FormData(this);
+
+            // 发送异步 POST 请求
+            fetch('/classapi', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // 处理返回的预测结果
+                const barChartContainer = document.getElementById('bar-chart-container');
+                const pieChartContainer = document.getElementById('pie-chart-container');
+
+                if (data.result === 0) {
+                    const tags = data.tags;
+                    const tagNames = [];
+                    const tagConfidences = [];
+
+                    tags.forEach(tag => {
+                        tagNames.push(tag.tag_name);
+                        tagConfidences.push(tag.tag_confidence);
+                    });
+
+                    // 使用 ECharts 生成柱状图
+                    const barChart = echarts.init(barChartContainer);
+                    const barOption = {
+                        title: {
+                            text: '可视化预测结果-柱状图',
+                            left: 'center'
+                        },
+                        tooltip: {
+                            trigger: 'axis',
+                            axisPointer: {
+                                type: 'shadow'
+                            }
+                        },
+                        xAxis: {
+                            type: 'category',
+                            data: tagNames
+                        },
+                        yAxis: {
+                            type: 'value'
+                        },
+                        series: [{
+                            data: tagConfidences,
+                            type: 'bar'
+                        }]
+                    };
+                    barChart.setOption(barOption);
+
+                    // 使用 ECharts 生成饼图
+                    const pieChart = echarts.init(pieChartContainer);
+                    const pieOption = {
+                        title: {
+                            text: '可视化预测结果-饼图',
+                            left: 'center'
+                        },
+                        tooltip: {
+                            trigger: 'item',
+                            formatter: '{a} <br/>{b}: {c} ({d}%)'
+                        },
+                        series: [
+                            {
+                                name: 'Prediction',
+                                type: 'pie',
+                                radius: ['50%', '70%'],
+                                avoidLabelOverlap: false,
+                                label: {
+                                    show: false,
+                                    position: 'center'
+                                },
+                                emphasis: {
+                                    label: {
+                                        show: true,
+                                        fontSize: '20',
+                                        fontWeight: 'bold'
+                                    }
+                                },
+                                labelLine: {
+                                    show: false
+                                },
+                                data: tagNames.map((name, index) => ({
+                                    name: name,
+                                    value: tagConfidences[index]
+                                }))
+                            }
+                        ]
+                    };
+                    pieChart.setOption(pieOption);
+                } else {
+                    barChartContainer.textContent = 'Prediction failed';
+                    pieChartContainer.textContent = 'Prediction failed';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        });
+    </script>
+</body>
+</html>
