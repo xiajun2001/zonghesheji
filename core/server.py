@@ -1,4 +1,5 @@
 # -*- encoding: utf-8 -*-
+import hashlib
 import json
 ################################################################################
 # curl "127.0.0.1:5000/classapi" -F"top=5" -F"net=inc" -F"lang=cn" -F"file=@tiger.jpg"
@@ -41,7 +42,11 @@ def predict():
             thenet = 'Resnet50'
         file = request.files['file']
         if file and allowed_file(file.filename):
-            path = os.path.join(app.config['UPLOAD_FOLDER'], str(uuid.uuid1()))
+            # 计算文件内容的哈希值
+            file_hash = hashlib.md5(file.read()).hexdigest()
+            path = os.path.join(app.config['UPLOAD_FOLDER'], file_hash)
+            # 将文件指针重置到文件开头，以便后续保存文件
+            file.seek(0)
             file.save(path)
             tags_json = network.predict(path, top, net)
             # 转为字典，提取tagname
@@ -64,7 +69,7 @@ def predict():
             }
 
             # 将数据以 JSON 格式存储在 Redis 中
-            redis_key = "tagprediction:{}".format(uuid.uuid1())
+            redis_key = "tagprediction:{}".format(file_hash)
             redis_conn.set(redis_key, json.dumps(data))
 
             # 设置数据过期时间，例如设置为 24 小时
