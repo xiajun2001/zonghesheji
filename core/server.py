@@ -48,35 +48,61 @@ def predict():
             # 将文件指针重置到文件开头，以便后续保存文件
             file.seek(0)
             file.save(path)
-            tags_json = network.predict(path, top, net)
-            # 转为字典，提取tagname
-            tags_dict = json.loads(tags_json)
 
-            # 将预测结果保存到 mysql 数据库
-            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # 获取当前时间并格式化为 YYYY-MM-DD
-            print(tags_dict["tags"][0]['tag_name'])
-            sql = "INSERT INTO tagprediction (path, predictiction, timestamp, model) VALUES (%s, %s, %s, %s)"
-            val = (path, tags_dict["tags"][0]['tag_name'], now, thenet)  # 假设预测结果为列表，取第一个结果的置信度
-            cursor.execute(sql, val)
-            conn.commit()
+            # 尝试从缓存中获取数据
+            sql_query = "SELECT * FROM tagprediction WHERE path LIKE '%{}%' AND model = '{}'".format(file_hash, thenet)
 
-            # 将预测结果存入 Redis 数据库
-            data = {
-                "path": path,
-                "prediction": tags_dict["tags"][0]['tag_name'],
-                "timestamp": now,
-                "model": thenet
-            }
+            redis_key = "sql:{}".format(sql_query)
+            redis_data = redis_conn.get(redis_key)
 
-            # 将数据以 JSON 格式存储在 Redis 中
-            redis_key = "tagprediction:{}".format(file_hash)
-            redis_conn.set(redis_key, json.dumps(data))
 
-            # 设置数据过期时间，例如设置为 24 小时
-            redis_conn.expire(redis_key, 24 * 60 * 60)
+            if redis_data:
+                # 如果在 Redis 中找到数据，则直接在 MySQL 数据库中查询预测结果
+                cursor.execute(sql_query)
+                mysql_data = cursor.fetchone()
 
-            return tags_json
+                if mysql_data:
+                    print("=============并非初次识别，use database============")
+
+                    return mysql_data[2]
+            else:
+                # 如果在 Redis 中没有找到数据，则在 MySQL 数据库中查询预测结果
+                cursor.execute(sql_query)
+                mysql_data = cursor.fetchone()
+
+                if mysql_data:
+                    print("=============非初次识别，redis无缓存数据，查询mysql数据库============")
+
+                    # 将查询语句存入 Redis 数据库
+                    redis_conn.set(redis_key, sql_query)
+
+                    return mysql_data[2]
+                else:
+                    print("=============初次识别，use model============")
+                    # 如果 Redis 中没有相关数据，则进行模型预测
+                    tags_json = network.predict(path, top, net)
+                    # 转为字典，提取tagname
+                    tags_dict = json.loads(tags_json)
+
+                    # 将预测结果保存到 mysql 数据库
+                    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # 获取当前时间并格式化为 YYYY-MM-DD
+                    # print(tags_dict["tags"][0]['tag_name'])
+                    sql = "INSERT INTO tagprediction (path, predictiction, timestamp, model) VALUES (%s, %s, %s, %s)"
+                    val = (path, tags_json, now, thenet)  # 假设预测结果为列表，取第一个结果的置信度
+                    cursor.execute(sql, val)
+                    conn.commit()
+
+                    # 将sql存储在 Redis 中
+                    redis_conn.set(redis_key, sql_query)
+
+                    # 设置数据过期时间，例如设置为 24 小时
+                    redis_conn.expire(redis_key, 24 * 60 * 60)
+
+                    return tags_json
+
     return ERROR
+
+
 
 @app.route('/', methods=['GET', 'POST'])
 def test():
