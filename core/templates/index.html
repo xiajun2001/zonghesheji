@@ -123,9 +123,11 @@
 
                     tags.forEach(tag => {
                         tagNames.push(tag.tag_name);
+
                         tagConfidences.push(tag.tag_confidence);
                     });
-
+                    console.log(tags)
+                    console.log(tagNames)
                     // 使用 ECharts 生成柱状图
                     const barChart = echarts.init(barChartContainer);
                     const barOption = {
@@ -141,7 +143,10 @@
                         },
                         xAxis: {
                             type: 'category',
-                            data: tagNames
+                            data: tagNames,
+                            axisLabel: {
+                                rotate: 30  // 旋转角度
+                            }
                         },
                         yAxis: {
                             type: 'value'

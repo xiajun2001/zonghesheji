@@ -128,6 +128,8 @@ def get_data():
         print("mysql")
         cursor.execute("SELECT path,predictiction,timestamp,model FROM tagprediction")
         mysql_data = cursor.fetchall()
+        if redis_data:
+            redis_data = redis_data[0].decode('utf-8')
 
         # 检查 MySQL 数据是否已经存在于 Redis 中
         for row in mysql_data:
