@@ -39,11 +39,9 @@ network 分类模型选择 select(vgg/res/inc)
 ```
 
 ```
-# For VGG16 curl
-curl "127.0.0.1:5000/api" -F"top=5" -F"net=vgg" -F"lang=cn" -F"file=@tiger.jpg"
 # For RestNet50 curl
-curl "127.0.0.1:5000/api" -F"top=5" -F"net=res" -F"lang=cn" -F"file=@tiger.jpg"
+curl "127.0.0.1:5000/api" -F"top=5" -F"net=res" -F"file=@tiger.jpg"
 # For InceptionV3 curl
-curl "127.0.0.1:5000/api" -F"top=5" -F"net=inc" -F"lang=cn" -F"file=@tiger.jpg"
+curl "127.0.0.1:5000/api" -F"top=5" -F"net=inc" -F"file=@tiger.jpg"
 ```
 ### 参考https://github.com/zhangbincheng1997/Keras-ImageNet
