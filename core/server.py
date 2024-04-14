@@ -88,7 +88,7 @@ def predict():
                     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # 获取当前时间并格式化为 YYYY-MM-DD
                     # print(tags_dict["tags"][0]['tag_name'])
                     sql = "INSERT INTO tagprediction (path, predictiction, timestamp, model) VALUES (%s, %s, %s, %s)"
-                    val = (path, tags_json, now, thenet)  # 假设预测结果为列表，取第一个结果的置信度
+                    val = (path, tags_json, now, thenet)
                     cursor.execute(sql, val)
                     conn.commit()
 
